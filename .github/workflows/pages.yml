@@ -33,6 +33,20 @@ jobs:
         with:
           path: dist
 
+  # GitHub pauses scheduled workflows in a public repo after 60 days without commits,
+  # which would quietly stop the daily price (and new-set) updates. Re-enabling the
+  # workflow through the API each scheduled run keeps it going. If it ever lapses
+  # anyway, the site warns visitors once prices are more than 3 days old.
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/pages.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   deploy:
     needs: build
     runs-on: ubuntu-latest

@@ -291,9 +291,33 @@ function recompute() {
 
   const warnings = [];
   if (set.stale) warnings.push(h('span', {}, h('strong', {}, 'Offline: '), 'showing cached prices (', set.staleReason, ').'));
+  const ageDays = set.pricesAsOf ? (Date.now() - Date.parse(set.pricesAsOf)) / 86400000 : 0;
+  if (ageDays > 3 && set.cards.length) { // a set with nothing listed has nothing to update
+    warnings.push(h('span', {}, h('strong', {}, `These prices are ${Math.floor(ageDays)} days old. `),
+      STATIC ? 'The daily price update may have stopped.' : 'TCGCSV may not be updating; try Refresh prices.'));
+  }
+  if (!set.cards.length) {
+    // Announced sets show up before TCGPlayer lists their cards.
+    warnings.push(h('span', {}, h('strong', {}, 'TCGPlayer hasn’t listed this set’s cards yet. '), 'Check back closer to release.'));
+    notice(...warnings);
+    state.view = null;
+    updateVisibility();
+    renderCollPlan();
+    return;
+  }
   if (set.missing?.length) {
-    warnings.push(h('span', {}, h('strong', {}, `${set.missing.length} card${set.missing.length === 1 ? '' : 's'} not on TCGPlayer yet `),
-      `(#${compactRanges(set.missing)}). They're left out, so the totals are a little low.`));
+    const most = set.printedSize && set.missing.length > set.printedSize / 4;
+    warnings.push(most
+      ? h('span', {}, h('strong', {}, `Only ${set.cards.length} of ${set.printedSize} cards are on TCGPlayer so far. `),
+        'Treat this as a rough early look: the answer will change as the rest are listed.')
+      : h('span', {}, h('strong', {}, `${plural(set.missing.length, 'card')} not on TCGPlayer yet `),
+        `(#${compactRanges(set.missing)}). They're left out, so the totals are a little low.`));
+  }
+  const unknown = Object.entries(set.unknownRarities || {});
+  if (unknown.length) {
+    const count = unknown.reduce((a, [, c]) => a + c, 0);
+    warnings.push(h('span', {}, h('strong', {}, `${plural(count, 'card')} with a rarity this app doesn’t know `),
+      `(${unknown.map(([r]) => r).join(', ')}) are left out, along with their pull rates.`));
   }
   if (!(rawBox > 0)) {
     warnings.push(h('span', {}, h('strong', {}, 'No booster box price found for this set. '), 'Enter one on the left to get a recommendation.'));
@@ -986,7 +1010,12 @@ function renderCollProgress() {
 function renderCollPlan() {
   const host = $('#collPlan');
   const v = state.view;
-  if (!v) { host.replaceChildren(h('div', { class: 'muted' }, 'Enter a booster box price on the left to get a plan.')); return; }
+  if (!v) {
+    host.replaceChildren(h('div', { class: 'muted' }, state.set && !state.set.cards.length
+      ? 'This set’s cards aren’t listed on TCGPlayer yet, so there’s no plan to show.'
+      : 'Enter a booster box price on the left to get a plan.'));
+    return;
+  }
   const best = v.ev.rows[v.ev.best];
   const owns = v.own.copies > 0;
   const compare = (label, alt) => h('div', { class: 'muted small' }, `${label}: ${boxes(alt.best)}, ${money(alt.total)}`);

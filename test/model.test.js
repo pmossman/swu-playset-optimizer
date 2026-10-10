@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULTS, binomialHead, countHead, prepare, evaluate, simulate } from '../public/model.js';
 import { parseList, formatList } from '../public/collection.js';
-import { normalizeSet } from '../lib/tcgcsv.js';
+import { normalizeSet, hasBoosters } from '../lib/tcgcsv.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -243,4 +243,27 @@ test('normalizeSet merges token-backed bases, maps hyperspace by name, skips tok
   assert.equal(set.sealed.standard.display.price.m, 70);
   assert.equal(set.sealed.standard.case.price.m, 400);
   assert.equal(set.sealed.carbonite.display.price.m, 200);
+});
+
+test('new sets: unknown variant words, unknown rarities and booster detection', () => {
+  const card = (productId, name, rarity, number) => ({
+    productId, name, extendedData: [{ name: 'Rarity', value: rarity }, { name: 'Number', value: number }, { name: 'CardType', value: 'Unit' }],
+  });
+  const products = [
+    card(1, 'Grogu - Irresistible', 'Rare', '045/300'),
+    card(2, 'Grogu - Irresistible (Starlight)', 'Rare', '412/300'),  // variant word we've never seen
+    card(3, 'Grogu - Irresistible (Hyperspace)', 'Rare', '345/300'),
+    card(4, 'Kylo Ren - Unleashed', 'Mythic', '046/300'),           // rarity we've never seen
+    card(5, 'The Mandalorian (Unmasked)', 'Common', '047/300'),     // parentheses, but no plain card of that name
+  ];
+  const prices = [{ productId: 3, subTypeName: 'Normal', marketPrice: 9, lowPrice: 8, midPrice: 9 }];
+  const set = normalizeSet(products, prices);
+  assert.deepEqual(set.cards.map(c => `${c.n} ${c.name}`), ['45 Grogu - Irresistible', '47 The Mandalorian (Unmasked)']);
+  assert.equal(set.cards[0].p.hs.m, 9);
+  assert.deepEqual(set.unknownRarities, { Mythic: 1 });
+
+  const sealed = name => ({ productId: 0, name, extendedData: [] });
+  assert.equal(hasBoosters([sealed('Icons 2027 Edition - Booster Display'), sealed('Icons 2027 Edition - Starter Box')]), true);
+  assert.equal(hasBoosters([sealed('Twin Suns - Blood Brothers Deck'), card(9, 'X', 'Rare', '1')]), false);
+  assert.equal(hasBoosters([sealed('Intro Battle: Hoth - Learn to Play Kit')]), false);
 });

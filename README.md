@@ -33,8 +33,28 @@ the Actions tab ("Run workflow"). If TCGCSV can't be reached the build fails and
 Pages keeps serving the previous day's prices.
 
 One-time setup: create the GitHub repo, then **Settings → Pages → Source: GitHub
-Actions**. Note that GitHub pauses scheduled workflows in a public repo after 60
-days with no commits; re-enable it from the Actions tab (or push anything).
+Actions**.
+
+### New sets
+
+Nothing to do when a set comes out:
+
+- **Discovery is by product, not name.** Any TCGCSV group with booster packs or
+  displays is a set (`cache/group-kinds.json` remembers the answer; new and upcoming
+  groups are re-checked daily). That's how "Icons 2027 Edition" showed up while
+  "Twin Suns" (a box of decks) and promo groups didn't.
+- **Announced sets** appear as "upcoming". Until TCGPlayer lists their cards the page
+  says so, and while only some are listed it warns that the answer is early.
+- **New variant printings** (a future "(Starlight)") are recognized structurally:
+  same name as a card in the set, plus a parenthetical.
+- **Things the app can't guess** (a new rarity, a set with no commons or legendaries,
+  which suggests a different pack layout, or a released set with no box price) show
+  up as warnings on the Actions run, and the summary table lists every set.
+- **The daily schedule keeps itself enabled** (GitHub pauses scheduled workflows after
+  60 days without commits), and visitors see a warning if prices are over 3 days old.
+
+Pack odds are the one thing that can't come from TCGPlayer: if a set changes the
+pack layout, adjust the odds under *Pack odds* (or the defaults in `public/model.js`).
 
 ## What it does
 
