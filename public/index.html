@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="app-mode" content="server">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.35' cy='.35' r='.75'%3E%3Cstop offset='0' stop-color='%23fcd34d'/%3E%3Cstop offset='.5' stop-color='%23f59e0b'/%3E%3Cstop offset='1' stop-color='%2392400e'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='15' fill='url(%23g)'/%3E%3C/svg%3E">
+  <meta name="description" content="How many Star Wars: Unlimited booster boxes to open before buying singles to finish your playsets, using live TCGPlayer prices.">
+  <title>SWU Playset Optimizer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div>
+        <h1>Playset Optimizer</h1>
+        <p>Star Wars: Unlimited · booster boxes vs. singles</p>
+      </div>
+    </div>
+    <div class="set-picker">
+      <label for="set">Set</label>
+      <select id="set"></select>
+      <button id="refresh" class="ghost" type="button" title="Re-download today's TCGPlayer prices">Refresh prices</button>
+    </div>
+    <div id="asof" class="asof"></div>
+  </header>
+
+  <main class="layout">
+    <aside class="controls" id="controls">
+      <section>
+        <h2>Booster box</h2>
+        <div class="field">
+          <label for="boxPrice">Price per box</label>
+          <div class="money"><span>$</span><input id="boxPrice" type="number" step="0.01" min="0" inputmode="decimal"></div>
+          <div class="chips" id="boxChips"></div>
+        </div>
+        <div class="field">
+          <label for="hitValue">Chase-card resale per box</label>
+          <div class="money"><span>$</span><input id="hitValue" data-key="hitValue" data-kind="num" type="number" step="1" min="0" inputmode="decimal"></div>
+          <small>If you'd sell hyperspace foils, Prestige and Showcase pulls, roughly what they'd net per box. Subtracted from the box price.</small>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your goal</h2>
+        <div class="row3">
+          <div class="field"><label for="copies">Each card</label><input id="copies" data-key="copies" data-kind="num" type="number" min="0" max="10" step="1"></div>
+          <div class="field"><label for="leaderCopies">Leaders</label><input id="leaderCopies" data-key="leaderCopies" data-kind="num" type="number" min="0" max="10" step="1"></div>
+          <div class="field"><label for="baseCopies">Bases</label><input id="baseCopies" data-key="baseCopies" data-kind="num" type="number" min="0" max="10" step="1"></div>
+        </div>
+        <label class="check"><input type="checkbox" data-key="includeSpecial" data-kind="bool"> Include Special-rarity cards</label>
+        <small>Spotlight/starter-deck cards. They aren't in boosters, so they're always bought as singles.</small>
+      </section>
+
+      <section>
+        <h2>Buying singles</h2>
+        <div class="field">
+          <label for="priceField">Price basis</label>
+          <select id="priceField" data-key="priceField" data-kind="select">
+            <option value="m">TCGPlayer market price</option>
+            <option value="l">Lowest listing</option>
+            <option value="mid">Mid price</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="minPrice">Minimum per card</label><div class="money"><span>$</span><input id="minPrice" data-key="minPrice" data-kind="num" type="number" min="0" step="0.05"></div></div>
+          <div class="field"><label for="perCardFee">Extra per card</label><div class="money"><span>$</span><input id="perCardFee" data-key="perCardFee" data-kind="num" type="number" min="0" step="0.05"></div></div>
+        </div>
+        <small>Bulk commons rarely sell below about $0.10. Use "extra per card" to spread shipping across a big order.</small>
+        <label class="check"><input type="checkbox" data-key="anyPrinting" data-kind="bool"> Buy a foil/hyperspace copy when it's cheaper</label>
+      </section>
+
+      <section>
+        <h2>Your duplicates</h2>
+        <div class="field">
+          <label for="tradePct">Trade duplicate rares &amp; legendaries at</label>
+          <div class="suffix"><input id="tradePct" data-key="tradePct" data-kind="num" type="number" min="0" max="100" step="5"><span>% of market</span></div>
+          <small>Traded for rares and legendaries you're missing, never more than you're missing. Below 100% covers haggling and trades you can't find. 0 turns trading off.</small>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="resalePct">Sell the rest at</label><div class="suffix"><input id="resalePct" data-key="resalePct" data-kind="num" type="number" min="0" max="100" step="5"><span>% of market</span></div></div>
+          <div class="field"><label for="resaleMin">Only if worth ≥</label><div class="money"><span>$</span><input id="resaleMin" data-key="resaleMin" data-kind="num" type="number" min="0" step="0.5"></div></div>
+        </div>
+        <small>Extras you don't trade. About 85% approximates TCGPlayer after fees; 0 means you keep them.</small>
+      </section>
+
+      <details class="odds">
+        <summary>Pack odds <span class="muted">· estimates</span></summary>
+        <p class="muted">FFG doesn't publish exact pull rates. These are community estimates; the legendary rate matters most.</p>
+        <div class="row2">
+          <div class="field"><label for="legendaryRate">Legendary, 1 in</label><div class="suffix"><input id="legendaryRate" data-key="legendaryRate" data-kind="every" type="number" min="1" step="0.5"><span>packs</span></div></div>
+          <div class="field"><label for="rareLeaderRate">Rare leader, 1 in</label><div class="suffix"><input id="rareLeaderRate" data-key="rareLeaderRate" data-kind="every" type="number" min="1" step="0.5"><span>packs</span></div></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label for="packsPerBox">Packs/box</label><input id="packsPerBox" data-key="packsPerBox" data-kind="num" type="number" min="1" step="1"></div>
+          <div class="field"><label for="commonsPerPack">Commons</label><input id="commonsPerPack" data-key="commonsPerPack" data-kind="num" type="number" min="0" step="1"></div>
+          <div class="field"><label for="uncommonsPerPack">Uncommons</label><input id="uncommonsPerPack" data-key="uncommonsPerPack" data-kind="num" type="number" min="0" step="1"></div>
+        </div>
+        <label class="check"><input type="checkbox" data-key="foilCounts" data-kind="bool"> Foil-slot card counts toward playsets</label>
+        <div class="field">
+          <span class="label">Foil slot rarity mix (relative weights)</span>
+          <div class="row4">
+            <div class="mini"><label for="foilC">C</label><input id="foilC" data-key="foilC" data-kind="num" type="number" min="0" step="1"></div>
+            <div class="mini"><label for="foilU">U</label><input id="foilU" data-key="foilU" data-kind="num" type="number" min="0" step="1"></div>
+            <div class="mini"><label for="foilR">R</label><input id="foilR" data-key="foilR" data-kind="num" type="number" min="0" step="0.5"></div>
+            <div class="mini"><label for="foilL">L</label><input id="foilL" data-key="foilL" data-kind="num" type="number" min="0" step="0.5"></div>
+          </div>
+        </div>
+      </details>
+
+      <button id="reset" class="ghost wide" type="button">Reset to defaults</button>
+    </aside>
+
+    <section class="results" id="results">
+      <div id="notice" aria-live="polite"></div>
+      <div class="tabs" role="tablist" aria-label="View">
+        <button type="button" role="tab" id="tabPlan" aria-controls="output" aria-selected="true">Plan</button>
+        <button type="button" role="tab" id="tabColl" aria-controls="collection" aria-selected="false" tabindex="-1">My cards <span class="tab-count" id="ownedCount" hidden></span></button>
+      </div>
+
+      <div id="collection" role="tabpanel" aria-labelledby="tabColl" hidden>
+        <div class="card coll-summary">
+          <div id="collProgress"></div>
+          <div id="collPlan" class="coll-plan" aria-live="polite"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Cards you want, and cards you own</h2>
+            <span class="muted small">Uncheck cards you don’t need playsets of. Under “You have”, count every printing: normal, foil and hyperspace.</span>
+          </div>
+          <div class="coll-toolbar">
+            <input id="collSearch" type="search" placeholder="Search, or type a card # + Enter to add" aria-label="Search cards, or type a card number and press Enter to add a copy" autocomplete="off">
+            <div class="chips" id="collRarity" role="group" aria-label="Rarities shown"></div>
+            <select id="collShow" aria-label="Which cards to show">
+              <option value="all">All cards</option>
+              <option value="missing">Still missing copies</option>
+              <option value="owned">Ones I own</option>
+              <option value="wanted">Ones I want</option>
+              <option value="unwanted">Ones I don’t want</option>
+            </select>
+            <select id="collSort" aria-label="Sort cards">
+              <option value="n">By card number</option>
+              <option value="price">Most expensive first</option>
+            </select>
+          </div>
+          <div id="quickAdd" class="quick-add" aria-live="polite"></div>
+          <div class="coll-bulk">
+            <span id="collShown" class="muted small"></span>
+            <span class="spacer"></span>
+            <button id="bulkFull" class="ghost small" type="button">Mark shown as complete</button>
+            <button id="bulkClear" class="ghost small" type="button">Clear shown</button>
+            <button id="undo" class="ghost small" type="button" hidden>Undo</button>
+            <span id="saveStatus" class="save-status small" aria-live="polite"></span>
+          </div>
+          <div class="table-wrap"><table id="collTable" class="num-table coll-table"></table></div>
+        </div>
+
+        <details class="card import" id="importBox">
+          <summary>Paste a list or export yours</summary>
+          <p class="static-note static-only" hidden>Your cards and want list are saved in this browser only. Export them here to back them up or move them to another device.</p>
+          <p class="muted">One card per line, count first: <code>3 017</code>, <code>2x Darth Vader - Commanding the First Legion</code>, <code>1 HMW 245</code>, <code>Grogu x2</code>. CSV exports with a header row (Count/Quantity plus Number and/or Name, optional Set) work too. Rows for other sets are skipped.</p>
+          <textarea id="importText" rows="8" spellcheck="false" aria-label="Card list"></textarea>
+          <label class="check"><input type="checkbox" id="importAdd"> Add to the counts I already have (otherwise listed cards are set to these counts)</label>
+          <div class="import-actions">
+            <button id="importBtn" class="primary" type="button">Import list</button>
+            <button id="exportBtn" class="ghost" type="button">Put my collection in the box</button>
+          </div>
+          <div id="importResult" aria-live="polite"></div>
+        </details>
+      </div>
+
+      <div id="output" role="tabpanel" aria-labelledby="tabPlan" hidden>
+        <div class="hero card" id="hero"></div>
+
+        <div class="card whatif">
+          <div class="whatif-control">
+            <span class="whatif-label" id="whatIfLabel">What if I open</span>
+            <div class="stepper" role="group" aria-labelledby="whatIfLabel">
+              <button id="whatIfMinus" class="ghost" type="button" aria-label="One box fewer">−</button>
+              <input id="whatIfNum" type="number" min="0" max="60" step="1" inputmode="numeric" aria-label="Boxes opened">
+              <button id="whatIfPlus" class="ghost" type="button" aria-label="One box more">+</button>
+            </div>
+            <span class="whatif-label" id="whatIfUnit">boxes?</span>
+            <input id="whatIfRange" type="range" min="0" max="10" step="1" aria-label="Boxes opened">
+            <button id="whatIfBest" class="ghost small" type="button" hidden></button>
+          </div>
+          <div id="whatIfOut" class="whatif-out" aria-live="polite"></div>
+        </div>
+
+        <div class="tiles" id="tiles"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Expected total cost by boxes opened</h2>
+            <div class="legend" id="legend"></div>
+          </div>
+          <div id="chart" class="chart"></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="card-head"><h2>Box by box</h2><span class="muted small">Click a row to see that many boxes</span></div>
+            <div class="table-wrap"><table id="boxTable" class="num-table"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2 id="groupTitle">Where the singles money goes</h2></div>
+            <div class="table-wrap"><table id="groupTable" class="num-table"></table></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2 id="cardTitle">Singles you'll most likely buy</h2><span class="muted small" id="cardNote">Your real list depends on what you pull</span></div>
+          <div class="table-wrap"><table id="cardTable" class="num-table"></table></div>
+          <button id="showAll" class="ghost" type="button"></button>
+        </div>
+
+        <div class="card notes">
+          <h2>How it works</h2>
+          <ul>
+            <li>On <em>My cards</em>, unchecked cards drop out of the goal and cards you own come off it: boxes and singles only have to cover the copies you're still missing. Pulls of unchecked cards, or of cards you already have, are extras: trade bait if they're rares or legendaries.</li>
+            <li>Each pack is modeled as 1 leader, 1 base, 9 commons, 3 uncommons, 1 rare-or-legendary and 1 foil of any rarity (all adjustable under <em>Pack odds</em>). Hyperspace copies that replace a normal card count toward your playset.</li>
+            <li>For every card and every box count, the app works out the exact odds of pulling 0, 1, 2… copies, and from that the expected number you'd still have to buy. Expected cost = boxes × box price + expected singles − expected resale of extras.</li>
+            <li>Trading: duplicate rares and legendaries (including spares you already own) are traded at the rate you set for rares and legendaries you're missing. The credit is capped at what you're missing, so lots of boxes means lots of trade bait but few holes left to fill. The simulation settles every trade exactly; the main curve uses a close approximation.</li>
+            <li>The shaded band is the middle 80% of 400 simulated box openings: what you'd plausibly spend, not just the average.</li>
+            <li>Prices are TCGPlayer's, via <a href="https://tcgcsv.com" target="_blank" rel="noopener">TCGCSV</a>, which refreshes once a day. Brand-new sets move fast, so check TCGPlayer before you buy.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
